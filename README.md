@@ -98,7 +98,7 @@ sequenceDiagram
 
 Para el desarrollo del prototipo, se ha priorizado una interfaz **"Voice-First" (prioridad a la voz)** y de fricción cero. Esto fomenta la inclusión digital, permitiendo que cualquier ciudadano, independientemente de sus habilidades tecnológicas o edad, pueda reportar incidencias sin enfrentarse a formularios complejos.
 
-*   **Enlace al prototipo interactivo (Figma):** *[Insertarás el link aquí cuando lo tengamos]*
+*   **Prototipo Interactivo (HTML/JS):** Se adjunta en el repositorio el archivo `mockup.html`, una *Single Page Application* (SPA) funcional que no requiere instalación ni dependencias.
 *   **UI navegable:** Flujo lineal de 3 pasos enfocado en la conversión rápida.
 
 ### Justificación de las Pantallas Principales:
@@ -115,26 +115,47 @@ Para el desarrollo del prototipo, se ha priorizado una interfaz **"Voice-First" 
     *   **Diseño:** Línea de tiempo visual del estado del ticket (Enviado -> En proceso -> Resuelto). 
     *   **Razonamiento:** La transparencia reduce la frustración ciudadana e incentiva la participación recurrente.
 
-## 4. Lógica básica simulada
-*   **Pseudocódigo o reglas simples:**
-    ```text
-    RECEIVE input_audio, ubicacion_gps
-    texto_crudo = AI_TRANSCRIPT(input_audio)
-    ticket_estructurado = AI_EXTRACT(texto_crudo)
+## 4. Lógica básica simulada (Implementación en PoC)
 
-    IF ticket_estructurado.tema == "basura" OR "contenedor" THEN
-        area = "Limpieza"
-    ELSE IF ticket_estructurado.tema == "semáforo" OR "bache" THEN
-        area = "Movilidad"
-    ELSE
-        area = "Mantenimiento Urbano"
-        
-    SAVE ticket TO database(area, ubicacion_gps)
+Para demostrar la viabilidad técnica y aportar mayor valor a la Prueba de Concepto, se ha superado el requisito del pseudocódigo teórico desarrollando la lógica en **JavaScript puro dentro del archivo `mockup.html`**. 
+
+*   **Lógica interactiva implementada:**
+    *   **Interacción de Hardware real:** Se utiliza la *Web Speech API* nativa del navegador para transcribir voz a texto en tiempo real, demostrando la accesibilidad de la aplicación.
+    *   **Geolocalización Inversa:** Se integra *Leaflet.js + Esri* para obtener y traducir coordenadas a nombres de calles de forma dinámica al arrastrar el mapa.
+    *   **Motor de Clasificación (Simulador de IA):** Un algoritmo evalúa el *input* de texto del usuario mediante reglas heurísticas (IF/THEN) para autocompletar la categorización del ticket.
+    *   **Base de datos en memoria:** Un *Array* almacena temporalmente los reportes generados en la sesión, simulando el almacenamiento en backend y permitiendo visualizar el historial.
+
+*   **Algoritmo de clasificación (Extracto del código JS):**
+    ```javascript
+    // 1. Recepción y transcripción (Hardware)
+    input_texto = transcribirAudioVoz(); 
+    
+    // 2. Extracción y categorización (Simulador IA)
+    let categoria = "Mantenimiento Urbano";
+    if (input_texto.includes("basura") || input_texto.includes("contenedor")) {
+        categoria = "Limpieza";
+    } else if (input_texto.includes("bache") || input_texto.includes("semáforo")) {
+        categoria = "Movilidad";
+    }
+
+    // 3. Estructuración y guardado simulado
+    const nuevoTicket = { 
+        id: generarIDAleatorio(), 
+        categoria: categoria, 
+        descripcion: input_texto, 
+        ubicacion: ubicacionMapa 
+    };
+    historialReportes.unshift(nuevoTicket);
     ```
-*   **Demo tipo "simulada":**
-    *   *Datos ficticios (Input):* Audio ciudadano: "Lleva el contenedor de la calle Mayor desbordado tres días, huele fatal y está lleno de moscas".
-    *   *Resultado esperado (Output):* 
-        *   Título: Contenedor desbordado
-        *   Categoría: Limpieza
-        *   Urgencia: Alta (motivo: riesgo salubridad/olores)
-        *   Derivado a: Área de Limpieza.
+
+## Guía para evaluar la Demo:
+
+Para evaluar la solución de primera mano, abre el archivo `mockup.html` adjunto en un navegador web moderno (se recomienda Chrome para habilitar el motor de dictado por voz) y realiza la siguiente prueba:
+    
+1. **Ubicación:** Mueve el mapa interactivo para comprobar cómo se actualiza la dirección dinámicamente.
+
+2.  **Input natural:** Pulsa el botón "Dictar queja" y di en voz alta: *"El contenedor de esta calle lleva días desbordado de basura"*.
+
+3.  **Estructuración:** Observa cómo el sistema avanza a la pantalla de detalle, categorizando automáticamente la incidencia como "Limpieza".
+
+4.  **Trazabilidad:** Confirma el envío para simular su derivación al Ayuntamiento y visualiza su estado en la línea de tiempo de la pestaña "Mis Reportes".
