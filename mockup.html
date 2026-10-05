@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Quejas - PoC Interactiva</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .mobile-screen {
+            width: 375px;
+            height: 812px;
+            border-radius: 40px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 8px solid #1f2937;
+            overflow: hidden;
+            position: relative;
+            background: #f3f4f6;
+            display: none;
+        }
+        .active-screen { display: flex; }
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-gray-200 flex justify-center items-center min-h-screen">
+
+    <!-- PANTALLA 1: INICIO -->
+    <div id="screen1" class="mobile-screen flex-col active-screen">
+        <div class="flex-1 relative w-full h-full z-0">
+            <div id="map" class="absolute inset-0"></div>
+            
+            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full z-[400] pointer-events-none">
+                <i class="fas fa-map-marker-alt text-red-600 text-5xl drop-shadow-lg"></i>
+            </div>
+
+            <div class="absolute top-12 w-full px-4 flex gap-2 z-[400]">
+                <div class="bg-white/90 backdrop-blur-md p-3 rounded-xl shadow-lg flex-1 flex items-center justify-between cursor-pointer" onclick="editarUbicacionManual()">
+                    <!-- Texto dinámico -->
+                    <span id="ubicacionInicio" class="font-semibold text-gray-700 truncate text-sm">📍 Cargando calle...</span>
+                    <span class="text-blue-500 text-xs font-bold ml-2"><i class="fas fa-pen"></i></span>
+                </div>
+                <!-- Botón revertido al icono de usuario -->
+                <button onclick="goToScreen('screen3')" class="bg-white/90 backdrop-blur-md w-12 h-11 rounded-xl shadow-lg flex items-center justify-center text-gray-600 hover:text-blue-600 shrink-0">
+                    <i class="fas fa-user"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-t-3xl shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] z-10">
+            <h2 class="text-xl font-bold mb-4 text-center">¿Qué ocurre?</h2>
+            
+            <div class="flex items-center gap-4 mb-4">
+                <input type="file" id="fotoInput" accept="image/*" class="hidden" onchange="fotoSubida()">
+                <button id="btnCamara" onclick="document.getElementById('fotoInput').click()" class="bg-blue-100 p-4 rounded-full text-blue-600 hover:bg-blue-200 transition-colors">
+                    <i class="fas fa-camera text-2xl"></i>
+                </button>
+                
+                <!-- Botón revertido a "Hablar" -->
+                <button onclick="iniciarDictado()" id="btnMicro" class="bg-blue-600 flex-1 py-4 rounded-full text-white font-bold shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors">
+                    <i class="fas fa-microphone"></i> Hablar
+                </button>
+            </div>
+            
+            <div class="relative">
+                <input id="inputIncidencia" type="text" placeholder="O escribe tu incidencia..." class="w-full bg-gray-100 p-4 pr-12 rounded-xl border-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <button onclick="simularIA()" class="absolute right-2 top-2 p-2 text-blue-500 hover:text-blue-700">
+                    <i class="fas fa-paper-plane text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA 2: DETALLE IA -->
+    <div id="screen2" class="mobile-screen bg-gray-50 flex-col">
+        <div class="bg-blue-600 text-white p-6 pt-12 pb-6">
+            <h1 class="text-xl font-bold"><i class="fas fa-robot mr-2"></i> Ticket Estructurado</h1>
+            <p class="text-blue-200 text-sm mt-1">Revisa los datos extraídos</p>
+        </div>
+        
+        <div class="p-6 flex-1 overflow-y-auto">
+            <div class="bg-white p-5 rounded-2xl shadow-sm mb-4 border border-gray-100">
+                <label class="text-xs text-gray-500 uppercase font-bold">Categoría Detectada</label>
+                <div class="flex items-center gap-3 mt-1 mb-4 p-2 bg-gray-50 rounded-lg">
+                    <span id="iconoCat" class="bg-orange-100 text-orange-600 p-2 rounded-lg"><i class="fas fa-trash-alt"></i></span>
+                    <select id="selectCategoria" onchange="cambiarColorIcono()" class="flex-1 bg-transparent font-semibold text-gray-800 outline-none cursor-pointer">
+                        <option value="Limpieza">Limpieza</option>
+                        <option value="Movilidad">Movilidad</option>
+                        <option value="Mantenimiento Urbano">Mantenimiento Urbano</option>
+                    </select>
+                </div>
+
+                <label class="text-xs text-gray-500 uppercase font-bold">Descripción enviada</label>
+                <textarea id="textoResumen" class="w-full mt-1 mb-4 bg-gray-50 p-3 rounded-lg text-sm border-gray-200" rows="3"></textarea>
+
+                <label class="text-xs text-gray-500 uppercase font-bold">Ubicación</label>
+                <div class="flex items-center justify-between mt-1 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100" onclick="editarUbicacionManual()">
+                    <span id="ubicacionDetalle" class="text-sm font-medium truncate pr-2">Ubicación...</span>
+                    <i class="fas fa-edit text-gray-400"></i>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+                <button onclick="goToScreen('screen1')" class="w-1/3 bg-gray-200 text-gray-700 py-4 rounded-xl font-bold">Volver</button>
+                <button onclick="enviarTicket()" class="w-2/3 bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2">
+                    Enviar <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA 3: ESTADO / PERFIL -->
+    <div id="screen3" class="mobile-screen bg-white flex-col">
+        <div class="p-6 pt-12 border-b flex items-center gap-4 bg-white z-10">
+            <button onclick="goToScreen('screen1')" class="text-gray-500 text-xl hover:text-gray-800"><i class="fas fa-arrow-left"></i></button>
+            <h1 class="text-2xl font-bold">Mis Reportes</h1>
+        </div>
+        
+        <div class="p-6 flex-1 overflow-y-auto bg-gray-50" id="listaReportes">
+            <p id="mensajeVacio" class="text-center text-gray-400 mt-10">No has enviado ningún ticket aún.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURACIÓN DEL MAPA (LEAFLET + ESRI) ---
+        let map;
+        let ubicacionTextoActual = "Ubicación detectada";
+        
+        function initMap() {
+            map = L.map('map', {zoomControl: false}).setView([40.4168, -3.7038], 16);
+            
+            // Proveedor cambiado a Esri (No pide API key y permite archivos locales)
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri'
+            }).addTo(map);
+            
+            obtenerDireccion(map.getCenter().lat, map.getCenter().lng);
+
+            map.on('moveend', function() {
+                let center = map.getCenter();
+                obtenerDireccion(center.lat, center.lng);
+            });
+        }
+        
+        // --- GEOLOCALIZACIÓN INVERSA (Lat/Lng a Calle) ---
+        async function obtenerDireccion(lat, lng) {
+            document.getElementById('ubicacionInicio').innerText = "📍 Buscando calle...";
+            try {
+                // API gratuita de Nominatim
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await response.json();
+                
+                // Coger el nombre de la calle (road) o la primera parte de la dirección
+                if(data && data.address) {
+                    ubicacionTextoActual = data.address.road || data.address.pedestrian || data.display_name.split(',')[0];
+                    if(data.address.house_number) ubicacionTextoActual += ", " + data.address.house_number;
+                } else {
+                    ubicacionTextoActual = `Lat: ${lat.toFixed(4)}`;
+                }
+                document.getElementById('ubicacionInicio').innerText = "📍 " + ubicacionTextoActual;
+                document.getElementById('ubicacionDetalle').innerText = ubicacionTextoActual;
+            } catch (error) {
+                ubicacionTextoActual = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+                document.getElementById('ubicacionInicio').innerText = "📍 " + ubicacionTextoActual;
+            }
+        }
+
+        let historialReportes = [];
+
+        function fotoSubida() {
+            const input = document.getElementById('fotoInput');
+            if (input.files && input.files[0]) {
+                const btn = document.getElementById('btnCamara');
+                btn.classList.remove('bg-blue-100', 'text-blue-600');
+                btn.classList.add('bg-green-100', 'text-green-600');
+                btn.innerHTML = '<i class="fas fa-check text-2xl"></i>';
+            }
+        }
+
+        function iniciarDictado() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'es-ES';
+                
+                const btn = document.getElementById('btnMicro');
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                btn.classList.replace('bg-blue-600', 'bg-red-500');
+
+                recognition.onresult = function(event) {
+                    document.getElementById('inputIncidencia').value = event.results[0][0].transcript;
+                };
+                
+                recognition.onend = function() {
+                    btn.innerHTML = '<i class="fas fa-microphone"></i> Hablar';
+                    btn.classList.replace('bg-red-500', 'bg-blue-600');
+                };
+                
+                recognition.start();
+            } else {
+                alert("Firefox no soporta esta API por defecto. Usa Chrome o escribe el texto.");
+            }
+        }
+
+        function editarUbicacionManual() {
+            let nueva = prompt("Introduce la dirección manual:", ubicacionTextoActual);
+            if (nueva && nueva.trim() !== "") {
+                ubicacionTextoActual = nueva;
+                document.getElementById('ubicacionInicio').innerText = "📍 " + nueva;
+                document.getElementById('ubicacionDetalle').innerText = nueva;
+            }
+        }
+
+        function cambiarColorIcono() {
+            const categoria = document.getElementById('selectCategoria').value;
+            const iconoDiv = document.getElementById('iconoCat');
+            
+            if (categoria === "Limpieza") {
+                iconoDiv.className = "bg-orange-100 text-orange-600 p-2 rounded-lg";
+                iconoDiv.innerHTML = '<i class="fas fa-trash-alt"></i>';
+            } else if (categoria === "Movilidad") {
+                iconoDiv.className = "bg-blue-100 text-blue-600 p-2 rounded-lg";
+                iconoDiv.innerHTML = '<i class="fas fa-car"></i>';
+            } else {
+                iconoDiv.className = "bg-gray-100 text-gray-600 p-2 rounded-lg";
+                iconoDiv.innerHTML = '<i class="fas fa-tools"></i>';
+            }
+        }
+
+        function simularIA() {
+            const input = document.getElementById('inputIncidencia').value.toLowerCase();
+            if (!input) {
+                alert("Por favor, escribe algo.");
+                return;
+            }
+
+            let categoriaSelec = "Mantenimiento Urbano";
+            if (input.includes("basura") || input.includes("contenedor") || input.includes("olor")) {
+                categoriaSelec = "Limpieza";
+            } else if (input.includes("semáforo") || input.includes("bache") || input.includes("coche")) {
+                categoriaSelec = "Movilidad";
+            }
+
+            document.getElementById('textoResumen').value = document.getElementById('inputIncidencia').value;
+            document.getElementById('selectCategoria').value = categoriaSelec;
+            cambiarColorIcono();
+            
+            goToScreen('screen2');
+        }
+
+        function enviarTicket() {
+            const nuevoTicket = {
+                id: "#" + (Math.floor(Math.random() * 9000) + 1000),
+                categoria: document.getElementById('selectCategoria').value,
+                descripcion: document.getElementById('textoResumen').value,
+                ubicacion: ubicacionTextoActual,
+                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            };
+            
+            historialReportes.unshift(nuevoTicket);
+            renderizarLista();
+            
+            document.getElementById('inputIncidencia').value = "";
+            const btnCamara = document.getElementById('btnCamara');
+            btnCamara.classList.replace('bg-green-100', 'bg-blue-100');
+            btnCamara.classList.replace('text-green-600', 'text-blue-600');
+            btnCamara.innerHTML = '<i class="fas fa-camera text-2xl"></i>';
+
+            goToScreen('screen3');
+        }
+
+        function renderizarLista() {
+            const listaDiv = document.getElementById('listaReportes');
+            document.getElementById('mensajeVacio').style.display = 'none';
+            
+            listaDiv.innerHTML = '<p id="mensajeVacio" class="text-center text-gray-400 mt-10 hidden">No has enviado ningún ticket aún.</p>';
+
+            historialReportes.forEach(ticket => {
+                const card = `
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm mb-4">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="overflow-hidden pr-2">
+                            <h3 class="font-bold text-lg text-gray-800">${ticket.categoria}</h3>
+                            <p class="text-sm text-gray-500 truncate">${ticket.ubicacion}</p>
+                        </div>
+                        <span class="bg-blue-100 text-blue-600 text-xs font-bold px-2 py-1 rounded-lg shrink-0">${ticket.id}</span>
+                    </div>
+                    
+                    <p class="text-sm text-gray-700 italic mb-4">"${ticket.descripcion}"</p>
+                    
+                    <div class="relative pl-6 border-l-2 border-gray-200 space-y-6">
+                        <div class="relative">
+                            <div class="absolute -left-[31px] bg-green-500 w-4 h-4 rounded-full border-4 border-white"></div>
+                            <p class="text-sm font-bold text-green-600">Enviado y Procesado</p>
+                            <p class="text-xs text-gray-400">Hoy, ${ticket.hora}</p>
+                        </div>
+                    </div>
+                </div>`;
+                listaDiv.innerHTML += card;
+            });
+        }
+
+        function goToScreen(screenId) {
+            document.getElementById('screen1').classList.remove('active-screen');
+            document.getElementById('screen2').classList.remove('active-screen');
+            document.getElementById('screen3').classList.remove('active-screen');
+            document.getElementById(screenId).classList.add('active-screen');
+            
+            if (screenId === 'screen1' && map) {
+                setTimeout(() => { map.invalidateSize(); }, 100);
+            }
+        }
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
